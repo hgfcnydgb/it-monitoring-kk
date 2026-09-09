@@ -11,10 +11,12 @@
   body{background:#f4f7fb;color:#222;padding:24px;}
   h1{color:var(--blue);font-size:26px;margin-bottom:4px;}
   .sub{color:#667;margin-bottom:20px;font-size:14px;}
-  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:22px;}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:22px;}
   .card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 2px 8px rgba(31,78,120,.12);border-top:4px solid var(--blue);}
-  .card .v{font-size:30px;font-weight:700;color:var(--blue);}
+  .card .v{font-size:28px;font-weight:700;color:var(--blue);}
   .card .l{font-size:13px;color:#667;margin-top:4px;}
+  .card.red{border-top-color:#c62828;}
+  .card.red .v{color:#c62828;}
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-bottom:22px;}
   .panel{background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(31,78,120,.12);}
   .panel h3{color:var(--blue);font-size:15px;margin-bottom:8px;}
@@ -25,6 +27,7 @@
   .tbl-wrap{max-height:420px;overflow:auto;border-radius:10px;box-shadow:0 2px 8px rgba(31,78,120,.12);}
   #search{width:100%;padding:10px;margin-bottom:12px;border:1px solid #c9d6e8;border-radius:8px;font-size:14px;}
   .badge{background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:12px;}
+  .badge.red{background:#ffebee;color:#c62828;}
   footer{margin-top:20px;color:#899;font-size:12px;}
 </style>
 </head>
@@ -34,14 +37,14 @@
 
 <div class="cards" id="cards"></div>
 <div class="grid">
-  <div class="panel"><h3>Динамика регистраций компаний (2002–2026)</h3><div id="ch5"></div></div>
+  <div class="panel"><h3>Динамика: регистрации (зелёные) vs ликвидации (красные)</h3><div id="ch5"></div></div>
   <div class="panel"><h3>Структура по аккредитации Минцифры</h3><div id="ch1"></div></div>
   <div class="panel"><h3>ТОП-10 ОКВЭД кластера</h3><div id="ch2"></div></div>
   <div class="panel"><h3>Вакансии по месяцам</h3><div id="ch3"></div></div>
   <div class="panel"><h3>ТОП-15 вакансий по зарплате</h3><div id="ch4"></div></div>
 </div>
 <input id="search" placeholder="🔍 Поиск: название, ИНН, ОГРН или директор...">
-<div class="tbl-wrap"><table id="tbl"><thead><tr><th>№</th><th>ИНН</th><th>Название</th><th>ОКВЭД</th><th>Регистрация</th><th>ОГРН</th><th>Аккредитация</th></tr></thead><tbody></tbody></table></div>
+<div class="tbl-wrap"><table id="tbl"><thead><tr><th>№</th><th>ИНН</th><th>Название</th><th>ОКВЭД</th><th>Регистрация</th><th>ОГРН</th><th>Аккредитация</th><th>Статус ЕГРЮЛ</th></tr></thead><tbody></tbody></table></div>
 <footer id="foot"></footer>
 
 <script>
@@ -59,28 +62,40 @@ async function load(){
 
 function render(C, V){
   const acc = C.filter(x=>x.mincifry_accredited).length;
+  const liq = C.filter(x=>x.egryl_status==="ликвидирована").length;
   const sals = V.map(x=>x.salary_avg).filter(x=>x);
   const avg = sals.length? Math.round(sals.reduce((a,b)=>a+b,0)/sals.length):0;
   const years = C.map(x=>(x.registration_date||"").slice(0,4)).filter(y=>y);
   const minY = years.length? Math.min(...years):"—", maxY = years.length? Math.max(...years):"—";
+
   document.getElementById("cards").innerHTML = `
     <div class="card"><div class="v">${C.length}</div><div class="l">ИТ-компаний в кластере</div></div>
-    <div class="card"><div class="v">${acc} <span style="font-size:16px">(${(acc*100/C.length).toFixed(1)}%)</span></div><div class="l">Аккредитованы Минцифры</div></div>
+    <div class="card"><div class="v">${acc} <span style="font-size:15px">(${(acc*100/C.length).toFixed(1)}%)</span></div><div class="l">Аккредитованы Минцифры</div></div>
+    <div class="card"><div class="v">${C.length-liq}</div><div class="l">Действующих компаний</div></div>
+    <div class="card red"><div class="v">${liq} <span style="font-size:15px">(${(liq*100/C.length).toFixed(1)}%)</span></div><div class="l">Ликвидировано за всё время</div></div>
     <div class="card"><div class="v">${V.length}</div><div class="l">ИТ-вакансий (HH.ru)</div></div>
     <div class="card"><div class="v">${avg? avg.toLocaleString("ru-RU")+" ₽":"—"}</div><div class="l">Средняя зарплата</div></div>
     <div class="card"><div class="v">${minY}–${maxY}</div><div class="l">История кластера (лет: ${maxY-minY+1})</div></div>`;
 
   if (typeof Plotly !== "undefined"){
     const yr = {}; C.forEach(x=>{const y=(x.registration_date||"").slice(0,4); if(y) yr[y]=(yr[y]||0)+1;});
-    const yrArr = Object.entries(yr).sort();
-    Plotly.newPlot("ch5",[{x:yrArr.map(a=>a[0]), y:yrArr.map(a=>a[1]), type:"bar", marker:{color:"#2e7d32"}}],{margin:{t:10,b:40,l:40,r:10},xaxis:{type:"category"},bargap:0.25});
+    const yl = {}; C.forEach(x=>{const y=(x.liquidation_date||"").slice(0,4); if(y) yl[y]=(yl[y]||0)+1;});
+    const allYears = [...new Set([...Object.keys(yr), ...Object.keys(yl)])].sort();
+    Plotly.newPlot("ch5",[
+      {x:allYears, y:allYears.map(y=>yr[y]||0), name:"Регистрации", type:"bar", marker:{color:"#2e7d32"}},
+      {x:allYears, y:allYears.map(y=>yl[y]||0), name:"Ликвидации", type:"bar", marker:{color:"#c62828"}}
+    ],{margin:{t:10,b:40,l:40,r:10},xaxis:{type:"category"},bargap:0.25,barmode:"group"});
+
     Plotly.newPlot("ch1",[{values:[acc, C.length-acc], labels:["Аккредитованы","Без аккредитации"], type:"pie", marker:{colors:["#2e7d32","#c62828"]}}],{margin:{t:10,b:10,l:10,r:10}});
+
     const ok = {}; C.forEach(x=>{const k=x.okved||"—"; ok[k]=(ok[k]||0)+1;});
     const okArr = Object.entries(ok).sort((a,b)=>b[1]-a[1]).slice(0,10);
     Plotly.newPlot("ch2",[{x:okArr.map(a=>a[0]), y:okArr.map(a=>a[1]), type:"bar", marker:{color:"#1f4e78"}}],{margin:{t:10,b:40,l:40,r:10},xaxis:{type:"category"}});
+
     const mo = {}; V.forEach(x=>{const k=(x.month||"").slice(0,7); if(k) mo[k]=(mo[k]||0)+1;});
     const moArr = Object.entries(mo).sort();
     Plotly.newPlot("ch3",[{x:moArr.map(a=>a[0]), y:moArr.map(a=>a[1]), type:"bar", marker:{color:"#2e75b6"}}],{margin:{t:10,b:40,l:40,r:10},xaxis:{type:"category"}});
+
     const top = V.filter(x=>x.salary_avg).sort((a,b)=>b.salary_avg-a.salary_avg).slice(0,15);
     Plotly.newPlot("ch4",[{x:top.map(x=>x.salary_avg), y:top.map(x=>(x.vacancy_name||"").slice(0,40)), type:"bar", orientation:"h", marker:{color:"#ed7d31"}}],{margin:{t:10,b:40,l:180,r:10}});
   }
@@ -102,7 +117,8 @@ function drawTable(rows){
   document.querySelector("#tbl tbody").innerHTML = rows.slice(0,300).map((x,i)=>
     `<tr><td>${i+1}</td><td>${x.inn||""}</td><td>${x.name||""}</td><td>${x.okved||""}</td>
      <td>${(x.registration_date||"").slice(0,4)||"—"}</td><td>${x.ogrn||""}</td>
-     <td>${x.mincifry_accredited?'<span class="badge">✓ Минцифры</span>':"—"}</td></tr>`).join("");
+     <td>${x.mincifry_accredited?'<span class="badge">✓ Минцифры</span>':"—"}</td>
+     <td>${x.egryl_status==="ликвидирована"?'<span class="badge red">✗ ликвидирована</span>':'<span class="badge">действующая</span>'}</td></tr>`).join("");
 }
 
 load().catch(e=>{document.getElementById("cards").innerHTML =
