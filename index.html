@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ИТ-кластер Краснодарского края — мониторинг</title>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+<style>
+  :root{--blue:#1f4e78;}
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;}
+  body{background:#f4f7fb;color:#222;padding:24px;}
+  h1{color:var(--blue);font-size:26px;margin-bottom:4px;}
+  .sub{color:#667;margin-bottom:20px;font-size:14px;}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:22px;}
+  .card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 2px 8px rgba(31,78,120,.12);border-top:4px solid var(--blue);}
+  .card .v{font-size:30px;font-weight:700;color:var(--blue);}
+  .card .l{font-size:13px;color:#667;margin-top:4px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-bottom:22px;}
+  .panel{background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(31,78,120,.12);}
+  .panel h3{color:var(--blue);font-size:15px;margin-bottom:8px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;background:#fff;}
+  th{background:var(--blue);color:#fff;padding:8px;text-align:left;position:sticky;top:0;}
+  td{padding:7px 8px;border-bottom:1px solid #e3e9f2;}
+  tr:nth-child(even){background:#f7fafd;}
+  .tbl-wrap{max-height:420px;overflow:auto;border-radius:10px;box-shadow:0 2px 8px rgba(31,78,120,.12);}
+  #search{width:100%;padding:10px;margin-bottom:12px;border:1px solid #c9d6e8;border-radius:8px;font-size:14px;}
+  .badge{background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:12px;}
+  footer{margin-top:20px;color:#899;font-size:12px;}
+</style>
+</head>
+<body>
+<h1>📊 Мониторинг ИТ-кластера Краснодарского края</h1>
+<div class="sub">Аналитическая панель Ассоциации ИТ-компаний КК • данные обновляются автоматически</div>
+
+<div class="cards" id="cards"></div>
+<div class="grid">
+  <div class="panel"><h3>Структура по аккредитации Минцифры</h3><div id="ch1"></div></div>
+  <div class="panel"><h3>ТОП-10 ОКВЭД кластера</h3><div id="ch2"></div></div>
+  <div class="panel"><h3>Вакансии по месяцам</h3><div id="ch3"></div></div>
+  <div class="panel"><h3>ТОП-15 вакансий по зарплате</h3><div id="ch4"></div></div>
+</div>
+<input id="search" placeholder="🔍 Поиск компании по названию или ИНН...">
+<div class="tbl-wrap"><table id="tbl"><thead><tr><th>№</th><th>ИНН</th><th>Название</th><th>ОКВЭД</th><th>Аккредитация</th></tr></thead><tbody></tbody></table></div>
+<footer id="foot"></footer>
+
+<script>
+const BASE = "https://ozsyfeitiycvopqvpwwb.supabase.co";
+const KEY  = "sb_publishable_PmpnpgOnNohJySXU1M6W4w_3aBPG8qy";
+const H = {headers:{apikey:KEY, Authorization:"Bearer "+KEY}};
+
+async function load(){
+  const [c, v] = await Promise.all([
+    fetch(BASE+"/rest/v1/it_companies?select=*&limit=2000", H).then(r=>r.json()),
+    fetch(BASE+"/rest/v1/hh_vacancies?select=*&limit=2000", H).then(r=>r.json())
+  ]);
+  render(c, v);
+}
+
+function render(C, V){
+  const acc = C.filter(x=>x.mincifry_accredited).length;
+  const sals = V.map(x=>x.salary_avg).filter(x=>x);
+  const avg = sals.length? Math.round(sals.reduce((a,b)=>a+b,0)/sals.length):0;
+  document.getElementById("cards").innerHTML = `
+    <div class="card"><div class="v">${C.length}</div><div class="l">ИТ-компаний в кластере</div></div>
+    <div class="card"><div class="v">${acc} <span style="font-size:16px">(${(acc*100/C.length).toFixed(1)}%)</span></div><div class="l">Аккредитованы Минцифры</div></div>
+    <div class="card"><div class="v">${V.length}</div><div class="l">ИТ-вакансий (HH.ru)</div></div>
+    <div class="card"><div class="v">${avg? avg.toLocaleString("ru-RU")+" ₽":"—"}</div><div class="l">Средняя зарплата</div></div>`;
+
+  if (typeof Plotly !== "undefined"){
+    Plotly.newPlot("ch1",[{values:[acc, C.length-acc], labels:["Аккредитованы","Без аккредитации"], type:"pie", marker:{colors:["#2e7d32","#c62828"]}}],{margin:{t:10,b:10,l:10,r:10}});
+    const ok = {}; C.forEach(x=>{const k=x.okved||"—"; ok[k]=(ok[k]||0)+1;});
+    const okArr = Object.entries(ok).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    Plotly.newPlot("ch2",[{x:okArr.map(a=>a[0]), y:okArr.map(a=>a[1]), type:"bar", marker:{color:"#1f4e78"}}],{margin:{t:10,b:40,l:40,r:10}});
+    const mo = {}; V.forEach(x=>{const k=(x.month||"").slice(0,7); if(k) mo[k]=(mo[k]||0)+1;});
+    const moArr = Object.entries(mo).sort();
+    Plotly.newPlot("ch3",[{x:moArr.map(a=>a[0]), y:moArr.map(a=>a[1]), type:"bar", marker:{color:"#2e75b6"}}],{margin:{t:10,b:40,l:40,r:10}});
+    const top = V.filter(x=>x.salary_avg).sort((a,b)=>b.salary_avg-a.salary_avg).slice(0,15);
+    Plotly.newPlot("ch4",[{x:top.map(x=>x.salary_avg), y:top.map(x=>(x.vacancy_name||"").slice(0,40)), type:"bar", orientation:"h", marker:{color:"#ed7d31"}}],{margin:{t:10,b:40,l:180,r:10}});
+  }
+
+  drawTable(C);
+  document.getElementById("search").oninput = e=>{
+    const q = e.target.value.toLowerCase();
+    drawTable(C.filter(x=>(x.name||"").toLowerCase().includes(q)||(x.inn||"").includes(q)));
+  };
+  document.getElementById("foot").textContent =
+    "Источник: реестр Минцифры РФ, ФНС, HH.ru • Открыто: "+new Date().toLocaleString("ru-RU");
+}
+
+function drawTable(rows){
+  document.querySelector("#tbl tbody").innerHTML = rows.slice(0,300).map((x,i)=>
+    `<tr><td>${i+1}</td><td>${x.inn||""}</td><td>${x.name||""}</td><td>${x.okved||""}</td>
+     <td>${x.mincifry_accredited?'<span class="badge">✓ Минцифры</span>':"—"}</td></tr>`).join("");
+}
+
+load().catch(e=>{document.getElementById("cards").innerHTML =
+  '<div class="card"><div class="l">Ошибка загрузки данных: '+e+'</div></div>';});
+</script>
+</body>
+</html>
