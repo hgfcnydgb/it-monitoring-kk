@@ -73,14 +73,14 @@ function render(C, V){
   if (typeof Plotly !== "undefined"){
     const yr = {}; C.forEach(x=>{const y=(x.registration_date||"").slice(0,4); if(y) yr[y]=(yr[y]||0)+1;});
     const yrArr = Object.entries(yr).sort();
-    Plotly.newPlot("ch5",[{x:yrArr.map(a=>a[0]), y:yrArr.map(a=>a[1]), type:"bar", marker:{color:"#2e7d32"}}],{margin:{t:10,b:40,l:40,r:10}});
+    Plotly.newPlot("ch5",[{x:yrArr.map(a=>a[0]), y:yrArr.map(a=>a[1]), type:"bar", marker:{color:"#2e7d32"}}],{margin:{t:10,b:40,l:40,r:10},xaxis:{type:"category"},bargap:0.25});
     Plotly.newPlot("ch1",[{values:[acc, C.length-acc], labels:["Аккредитованы","Без аккредитации"], type:"pie", marker:{colors:["#2e7d32","#c62828"]}}],{margin:{t:10,b:10,l:10,r:10}});
     const ok = {}; C.forEach(x=>{const k=x.okved||"—"; ok[k]=(ok[k]||0)+1;});
     const okArr = Object.entries(ok).sort((a,b)=>b[1]-a[1]).slice(0,10);
-    Plotly.newPlot("ch2",[{x:okArr.map(a=>a[0]), y:okArr.map(a=>a[1]), type:"bar", marker:{color:"#1f4e78"}}],{margin:{t:10,b:40,l:40,r:10}});
+    Plotly.newPlot("ch2",[{x:okArr.map(a=>a[0]), y:okArr.map(a=>a[1]), type:"bar", marker:{color:"#1f4e78"}}],{margin:{t:10,b:40,l:40,r:10},xaxis:{type:"category"}});
     const mo = {}; V.forEach(x=>{const k=(x.month||"").slice(0,7); if(k) mo[k]=(mo[k]||0)+1;});
     const moArr = Object.entries(mo).sort();
-    Plotly.newPlot("ch3",[{x:moArr.map(a=>a[0]), y:moArr.map(a=>a[1]), type:"bar", marker:{color:"#2e75b6"}}],{margin:{t:10,b:40,l:40,r:10}});
+    Plotly.newPlot("ch3",[{x:moArr.map(a=>a[0]), y:moArr.map(a=>a[1]), type:"bar", marker:{color:"#2e75b6"}}],{margin:{t:10,b:40,l:40,r:10},xaxis:{type:"category"}});
     const top = V.filter(x=>x.salary_avg).sort((a,b)=>b.salary_avg-a.salary_avg).slice(0,15);
     Plotly.newPlot("ch4",[{x:top.map(x=>x.salary_avg), y:top.map(x=>(x.vacancy_name||"").slice(0,40)), type:"bar", orientation:"h", marker:{color:"#ed7d31"}}],{margin:{t:10,b:40,l:180,r:10}});
   }
