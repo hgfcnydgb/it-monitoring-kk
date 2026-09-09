@@ -34,13 +34,14 @@
 
 <div class="cards" id="cards"></div>
 <div class="grid">
+  <div class="panel"><h3>Динамика регистраций компаний (2002–2026)</h3><div id="ch5"></div></div>
   <div class="panel"><h3>Структура по аккредитации Минцифры</h3><div id="ch1"></div></div>
   <div class="panel"><h3>ТОП-10 ОКВЭД кластера</h3><div id="ch2"></div></div>
   <div class="panel"><h3>Вакансии по месяцам</h3><div id="ch3"></div></div>
   <div class="panel"><h3>ТОП-15 вакансий по зарплате</h3><div id="ch4"></div></div>
 </div>
-<input id="search" placeholder="🔍 Поиск компании по названию или ИНН...">
-<div class="tbl-wrap"><table id="tbl"><thead><tr><th>№</th><th>ИНН</th><th>Название</th><th>ОКВЭД</th><th>Аккредитация</th></tr></thead><tbody></tbody></table></div>
+<input id="search" placeholder="🔍 Поиск: название, ИНН, ОГРН или директор...">
+<div class="tbl-wrap"><table id="tbl"><thead><tr><th>№</th><th>ИНН</th><th>Название</th><th>ОКВЭД</th><th>Регистрация</th><th>ОГРН</th><th>Аккредитация</th></tr></thead><tbody></tbody></table></div>
 <footer id="foot"></footer>
 
 <script>
@@ -60,13 +61,19 @@ function render(C, V){
   const acc = C.filter(x=>x.mincifry_accredited).length;
   const sals = V.map(x=>x.salary_avg).filter(x=>x);
   const avg = sals.length? Math.round(sals.reduce((a,b)=>a+b,0)/sals.length):0;
+  const years = C.map(x=>(x.registration_date||"").slice(0,4)).filter(y=>y);
+  const minY = years.length? Math.min(...years):"—", maxY = years.length? Math.max(...years):"—";
   document.getElementById("cards").innerHTML = `
     <div class="card"><div class="v">${C.length}</div><div class="l">ИТ-компаний в кластере</div></div>
     <div class="card"><div class="v">${acc} <span style="font-size:16px">(${(acc*100/C.length).toFixed(1)}%)</span></div><div class="l">Аккредитованы Минцифры</div></div>
     <div class="card"><div class="v">${V.length}</div><div class="l">ИТ-вакансий (HH.ru)</div></div>
-    <div class="card"><div class="v">${avg? avg.toLocaleString("ru-RU")+" ₽":"—"}</div><div class="l">Средняя зарплата</div></div>`;
+    <div class="card"><div class="v">${avg? avg.toLocaleString("ru-RU")+" ₽":"—"}</div><div class="l">Средняя зарплата</div></div>
+    <div class="card"><div class="v">${minY}–${maxY}</div><div class="l">История кластера (лет: ${maxY-minY+1})</div></div>`;
 
   if (typeof Plotly !== "undefined"){
+    const yr = {}; C.forEach(x=>{const y=(x.registration_date||"").slice(0,4); if(y) yr[y]=(yr[y]||0)+1;});
+    const yrArr = Object.entries(yr).sort();
+    Plotly.newPlot("ch5",[{x:yrArr.map(a=>a[0]), y:yrArr.map(a=>a[1]), type:"bar", marker:{color:"#2e7d32"}}],{margin:{t:10,b:40,l:40,r:10}});
     Plotly.newPlot("ch1",[{values:[acc, C.length-acc], labels:["Аккредитованы","Без аккредитации"], type:"pie", marker:{colors:["#2e7d32","#c62828"]}}],{margin:{t:10,b:10,l:10,r:10}});
     const ok = {}; C.forEach(x=>{const k=x.okved||"—"; ok[k]=(ok[k]||0)+1;});
     const okArr = Object.entries(ok).sort((a,b)=>b[1]-a[1]).slice(0,10);
@@ -81,15 +88,20 @@ function render(C, V){
   drawTable(C);
   document.getElementById("search").oninput = e=>{
     const q = e.target.value.toLowerCase();
-    drawTable(C.filter(x=>(x.name||"").toLowerCase().includes(q)||(x.inn||"").includes(q)));
+    drawTable(C.filter(x=>
+      (x.name||"").toLowerCase().includes(q)||
+      (x.inn||"").includes(q)||
+      (x.ogrn||"").includes(q)||
+      (x.director||"").toLowerCase().includes(q)));
   };
   document.getElementById("foot").textContent =
-    "Источник: реестр Минцифры РФ, ФНС, HH.ru • Открыто: "+new Date().toLocaleString("ru-RU");
+    "Источник: реестр Минцифры РФ, ЕГРЮЛ ФНС, HH.ru • Открыто: "+new Date().toLocaleString("ru-RU");
 }
 
 function drawTable(rows){
   document.querySelector("#tbl tbody").innerHTML = rows.slice(0,300).map((x,i)=>
     `<tr><td>${i+1}</td><td>${x.inn||""}</td><td>${x.name||""}</td><td>${x.okved||""}</td>
+     <td>${(x.registration_date||"").slice(0,4)||"—"}</td><td>${x.ogrn||""}</td>
      <td>${x.mincifry_accredited?'<span class="badge">✓ Минцифры</span>':"—"}</td></tr>`).join("");
 }
 
